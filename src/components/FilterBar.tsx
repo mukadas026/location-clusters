@@ -16,9 +16,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 interface FilterBarProps {
-  status: string;
+  statuses: string[];
   search: string;
-  onStatusChange: (status: string) => void;
+  onStatusesChange: (statuses: string[]) => void;
   onSearchChange: (search: string) => void;
   onRefresh: () => void;
   onOpenSettings: () => void;
@@ -27,9 +27,9 @@ interface FilterBarProps {
 }
 
 export function FilterBar({
-  status,
+  statuses,
   search,
-  onStatusChange,
+  onStatusesChange,
   onSearchChange,
   onRefresh,
   onOpenSettings,
@@ -37,7 +37,12 @@ export function FilterBar({
   unauthorized,
 }: FilterBarProps) {
   const [expanded, setExpanded] = useState(false);
-  const activeCount = [status, search].filter(Boolean).length;
+  const statusFilterActive = statuses.length !== ORDER_STATUSES.length;
+  const activeCount = (statusFilterActive ? 1 : 0) + (search ? 1 : 0);
+
+  function toggleStatus(s: string) {
+    onStatusesChange(statuses.includes(s) ? statuses.filter((x) => x !== s) : [...statuses, s]);
+  }
 
   return (
     <div className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
@@ -80,19 +85,26 @@ export function FilterBar({
       </div>
 
       {expanded && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3 dark:border-zinc-800">
-          <select
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            value={status}
-            onChange={(e) => onStatusChange(e.target.value)}
-          >
-            <option value="">All statuses</option>
-            {ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-start gap-4 border-t border-zinc-200 px-3 py-2.5 sm:px-4 sm:py-3 dark:border-zinc-800">
+          <div>
+            <div className="mb-1.5 flex items-center gap-2 text-xs text-zinc-500">
+              <span>Status</span>
+              <button className="underline hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => onStatusesChange(ORDER_STATUSES.slice())}>
+                All
+              </button>
+              <button className="underline hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => onStatusesChange([])}>
+                None
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+              {ORDER_STATUSES.map((s) => (
+                <label key={s} className="flex items-center gap-1.5 text-sm text-zinc-700 dark:text-zinc-300">
+                  <input type="checkbox" checked={statuses.includes(s)} onChange={() => toggleStatus(s)} />
+                  {STATUS_LABELS[s]}
+                </label>
+              ))}
+            </div>
+          </div>
 
           <input
             type="search"

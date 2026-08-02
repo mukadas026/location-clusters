@@ -42,13 +42,14 @@ async function upstreamFetch(path: string, token: string) {
 }
 
 export interface OrdersFilter {
-  status?: string;
   search?: string;
 }
 
+// Status filtering happens client-side (multi-select), since upstream only accepts a single
+// status value per request — fetching everything once and filtering in the browser is simpler
+// and cheaper than one upstream round-trip per selected status.
 async function fetchOrdersPage(filter: OrdersFilter, page: number, token: string): Promise<OrdersListResponse> {
   const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
-  if (filter.status) params.set("status", filter.status);
   if (filter.search) params.set("search", filter.search);
 
   return upstreamFetch(`/api/org/orders?${params.toString()}`, token);

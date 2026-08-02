@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { FilterBar } from "@/components/FilterBar";
 import { StatsBar } from "@/components/StatsBar";
@@ -16,7 +16,7 @@ const Map = dynamic(() => import("@/components/Map").then((m) => m.Map), {
 });
 
 export default function Home() {
-  const [status, setStatus] = useState("");
+  const [statuses, setStatuses] = useState<string[]>(["assigned"]);
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState<MapOrder[]>([]);
   const [truncated, setTruncated] = useState(false);
@@ -31,7 +31,6 @@ export default function Home() {
     setLoading(true);
     setError(null);
     const params = new URLSearchParams();
-    if (status) params.set("status", status);
     if (search) params.set("search", search);
 
     fetchWithToken(`/api/orders?${params.toString()}`)
@@ -51,26 +50,32 @@ export default function Home() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [status, search]);
+  }, [search]);
 
   useEffect(() => {
     const timeout = setTimeout(load, 300);
     return () => clearTimeout(timeout);
   }, [load]);
 
+  // Status is filtered client-side (multi-select) — no refetch needed when it changes.
+  const filteredOrders = useMemo(
+    () => orders.filter((order) => statuses.includes(order.status)),
+    [orders, statuses]
+  );
+
   return (
     <div className="flex h-dvh flex-col">
       <FilterBar
-        status={status}
+        statuses={statuses}
         search={search}
-        onStatusChange={setStatus}
+        onStatusesChange={setStatuses}
         onSearchChange={setSearch}
         onRefresh={load}
         onOpenSettings={() => setSettingsOpen(true)}
         loading={loading}
         unauthorized={unauthorized}
       />
-      <StatsBar orders={orders} truncated={truncated} />
+      <StatsBar orders={filteredOrders} truncated={truncated} />
 
       {error && (
         <div className="bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{error}</div>
@@ -79,12 +84,12 @@ export default function Home() {
       <div className="relative flex flex-1 flex-col">
         {loading && orders.length === 0 ? (
           <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">Loading orders...</div>
-        ) : orders.length === 0 && !error ? (
+        ) : filteredOrders.length === 0 && !error ? (
           <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
             No orders match the current filters.
           </div>
         ) : (
-          <Map orders={orders} onSelectOrder={setSelectedOrderId} />
+          <Map orders={filteredOrders} onSelectOrder={setSelectedOrderId} />
         )}
 
         {selectedOrderId && (

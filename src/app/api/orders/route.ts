@@ -12,11 +12,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const status = request.nextUrl.searchParams.get("status") || undefined;
   const search = request.nextUrl.searchParams.get("search") || undefined;
 
   try {
-    const { orders, truncated } = await fetchAllOrders({ status, search }, token);
+    const { orders, truncated } = await fetchAllOrders({ search }, token);
     return NextResponse.json({ orders: orders.map(toMapOrder), truncated });
   } catch (error) {
     if (error instanceof MoveetApiError) {
