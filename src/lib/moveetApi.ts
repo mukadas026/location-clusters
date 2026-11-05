@@ -8,14 +8,17 @@ function baseUrl() {
   return process.env.MOVEET_API_BASE_URL || DEFAULT_BASE_URL;
 }
 
-function upstreamHeaders(token: string) {
+function baseHeaders() {
   return {
     accept: "*/*",
     "content-type": "application/json",
     origin: "https://admin.moveet.delivery",
     referer: "https://admin.moveet.delivery/",
-    token,
   };
+}
+
+function upstreamHeaders(token: string) {
+  return { ...baseHeaders(), token };
 }
 
 export class MoveetApiError extends Error {
@@ -39,6 +42,32 @@ async function upstreamFetch(path: string, token: string) {
   }
 
   return res.json();
+}
+
+async function upstreamPost(path: string, body: unknown) {
+  const res = await fetch(`${baseUrl()}${path}`, {
+    method: "POST",
+    headers: baseHeaders(),
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const json = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    const message = typeof json?.payload === "string" ? json.payload : `Request failed: ${res.status}`;
+    throw new MoveetApiError(message, res.status);
+  }
+
+  return json;
+}
+
+export async function requestOtp(phone: string) {
+  await upstreamPost("/auth/otp/request", { phone });
+}
+
+export async function verifyOtp(phone: string, otp: string): Promise<{ tokenType?: string; token?: string }> {
+  const json = await upstreamPost("/auth/otp/verify/unified", { phoneNumber: phone, otp });
+  return json?.payload ?? {};
 }
 
 export interface OrdersFilter {

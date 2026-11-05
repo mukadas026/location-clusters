@@ -21,9 +21,9 @@ interface FilterBarProps {
   onStatusesChange: (statuses: string[]) => void;
   onSearchChange: (search: string) => void;
   onRefresh: () => void;
-  onOpenSettings: () => void;
+  onLogout: () => void;
+  orgName: string;
   loading: boolean;
-  unauthorized?: boolean;
 }
 
 export function FilterBar({
@@ -32,9 +32,9 @@ export function FilterBar({
   onStatusesChange,
   onSearchChange,
   onRefresh,
-  onOpenSettings,
+  onLogout,
+  orgName,
   loading,
-  unauthorized,
 }: FilterBarProps) {
   const [expanded, setExpanded] = useState(false);
   const statusFilterActive = statuses.length !== ORDER_STATUSES.length;
@@ -62,11 +62,7 @@ export function FilterBar({
 
         <div className="flex-1" />
 
-        {unauthorized && (
-          <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
-            Unauthorized — token expired
-          </span>
-        )}
+        <span className="hidden max-w-40 truncate text-sm text-zinc-500 sm:inline">{orgName}</span>
 
         <button
           className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
@@ -78,9 +74,9 @@ export function FilterBar({
 
         <button
           className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          onClick={onOpenSettings}
+          onClick={onLogout}
         >
-          Settings
+          Logout
         </button>
       </div>
 

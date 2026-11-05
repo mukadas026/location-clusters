@@ -12,6 +12,13 @@ import { STATUS_LABELS } from "./FilterBar";
 import type { MapOrder } from "@/lib/types";
 import { statusColor, STATUS_COLORS } from "@/lib/statusColors";
 import { createClusterIconFactory, type ClusterRegistry } from "@/lib/clusterIcon";
+import {
+  CLUSTER_RADIUS_STEP,
+  getStoredClusterRadius,
+  MAX_CLUSTER_RADIUS,
+  MIN_CLUSTER_RADIUS,
+  setStoredClusterRadius,
+} from "@/lib/clusterRadiusStorage";
 import { ClusterContextMenu } from "./ClusterContextMenu";
 
 const GHANA_CENTER: [number, number] = [7.9465, -1.0232];
@@ -45,6 +52,8 @@ interface MapProps {
 
 export function Map({ orders, onSelectOrder }: MapProps) {
   const [myLocation, setMyLocation] = useState<[number, number] | null>(null);
+  const [radiusDraft, setRadiusDraft] = useState(getStoredClusterRadius);
+  const [clusterRadius, setClusterRadius] = useState(radiusDraft);
   const registry = useMemo<ClusterRegistry>(() => new globalThis.Map(), []);
   const clusterIcon = useMemo(() => createClusterIconFactory(registry), [registry]);
 
@@ -57,6 +66,16 @@ export function Map({ orders, onSelectOrder }: MapProps) {
       }
     );
   }, []);
+
+  // The cluster group reads its radius once at construction, so changes remount it (via `key`);
+  // debouncing keeps dragging the slider from rebuilding every cluster on each step.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setClusterRadius(radiusDraft);
+      setStoredClusterRadius(radiusDraft);
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [radiusDraft]);
 
   return (
     <div className="relative flex-1">
@@ -72,7 +91,12 @@ export function Map({ orders, onSelectOrder }: MapProps) {
           </Marker>
         )}
 
-        <MarkerClusterGroup maxClusterRadius={50} chunkedLoading iconCreateFunction={clusterIcon}>
+        <MarkerClusterGroup
+          key={`origin-${clusterRadius}`}
+          maxClusterRadius={clusterRadius}
+          chunkedLoading
+          iconCreateFunction={clusterIcon}
+        >
           {orders
             .filter((o) => o.origin)
             .map((order) => (
@@ -96,7 +120,12 @@ export function Map({ orders, onSelectOrder }: MapProps) {
             ))}
         </MarkerClusterGroup>
 
-        <MarkerClusterGroup maxClusterRadius={50} chunkedLoading iconCreateFunction={clusterIcon}>
+        <MarkerClusterGroup
+          key={`dest-${clusterRadius}`}
+          maxClusterRadius={clusterRadius}
+          chunkedLoading
+          iconCreateFunction={clusterIcon}
+        >
           {orders.flatMap((order) =>
             order.subOrders
               .filter((sub) => sub.destination)
@@ -128,7 +157,26 @@ export function Map({ orders, onSelectOrder }: MapProps) {
       </MapContainer>
 
       <Legend />
+      <ClusterRadiusControl value={radiusDraft} onChange={setRadiusDraft} />
     </div>
+  );
+}
+
+function ClusterRadiusControl({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  return (
+    <label className="absolute top-3 right-3 z-[1000] flex items-center gap-2 rounded-md bg-white/95 px-2.5 py-2 text-xs shadow-md sm:top-4 sm:right-4 dark:bg-zinc-900/95">
+      <span className="font-semibold text-zinc-700 dark:text-zinc-200">Cluster radius</span>
+      <input
+        type="range"
+        min={MIN_CLUSTER_RADIUS}
+        max={MAX_CLUSTER_RADIUS}
+        step={CLUSTER_RADIUS_STEP}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-24 sm:w-32"
+      />
+      <span className="w-9 text-right text-zinc-600 tabular-nums dark:text-zinc-400">{value}px</span>
+    </label>
   );
 }
 

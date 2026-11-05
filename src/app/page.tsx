@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { FilterBar } from "@/components/FilterBar";
 import { StatsBar } from "@/components/StatsBar";
 import { OrderDetailPanel } from "@/components/OrderDetailPanel";
-import { SettingsModal } from "@/components/SettingsModal";
-import { UnauthorizedModal } from "@/components/UnauthorizedModal";
-import { fetchWithToken } from "@/lib/tokenStorage";
+import { clearStoredToken, fetchWithToken, getSession } from "@/lib/tokenStorage";
 import type { MapOrder } from "@/lib/types";
 
 const Map = dynamic(() => import("@/components/Map").then((m) => m.Map), {
@@ -16,6 +15,8 @@ const Map = dynamic(() => import("@/components/Map").then((m) => m.Map), {
 });
 
 export default function Home() {
+  const router = useRouter();
+  const [orgName, setOrgName] = useState<string | null>(null);
   const [statuses, setStatuses] = useState<string[]>(["assigned"]);
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState<MapOrder[]>([]);
@@ -23,9 +24,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [unauthorized, setUnauthorized] = useState(false);
-  const [showUnauthorizedModal, setShowUnauthorizedModal] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -37,12 +35,7 @@ export default function Home() {
       .then(async (res) => {
         const body = await res.json();
 
-        if (res.status === 401) {
-          setUnauthorized(true);
-          setShowUnauthorizedModal(true);
-          return;
-        }
-        setUnauthorized(false);
+        if (res.status === 401) return;
 
         if (!res.ok) throw new Error(body.error || "Failed to load orders");
         setOrders(body.orders);
@@ -53,15 +46,29 @@ export default function Home() {
   }, [search]);
 
   useEffect(() => {
+    const session = getSession();
+    if (session) setOrgName(session.orgName);
+    else router.replace("/login");
+  }, [router]);
+
+  useEffect(() => {
+    if (orgName === null) return;
     const timeout = setTimeout(load, 300);
     return () => clearTimeout(timeout);
-  }, [load]);
+  }, [load, orgName]);
+
+  function logout() {
+    clearStoredToken();
+    router.replace("/login");
+  }
 
   // Status is filtered client-side (multi-select) — no refetch needed when it changes.
   const filteredOrders = useMemo(
     () => orders.filter((order) => statuses.includes(order.status)),
     [orders, statuses]
   );
+
+  if (orgName === null) return null;
 
   return (
     <div className="flex h-dvh flex-col">
@@ -71,9 +78,9 @@ export default function Home() {
         onStatusesChange={setStatuses}
         onSearchChange={setSearch}
         onRefresh={load}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onLogout={logout}
+        orgName={orgName}
         loading={loading}
-        unauthorized={unauthorized}
       />
       <StatsBar orders={filteredOrders} truncated={truncated} />
 
@@ -96,18 +103,6 @@ export default function Home() {
           <OrderDetailPanel orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
         )}
       </div>
-
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} onSaved={load} />}
-
-      {showUnauthorizedModal && (
-        <UnauthorizedModal
-          onOpenSettings={() => {
-            setShowUnauthorizedModal(false);
-            setSettingsOpen(true);
-          }}
-          onDismiss={() => setShowUnauthorizedModal(false)}
-        />
-      )}
     </div>
   );
 }

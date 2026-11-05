@@ -6,7 +6,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const token = resolveToken(request);
   if (!token) {
     return NextResponse.json(
-      { error: "No Moveet API token configured. Set MOVEET_API_TOKEN or add one in Settings." },
+      { error: "Not logged in." },
       { status: 401 }
     );
   }
