@@ -5,12 +5,14 @@ import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 
 import L from "leaflet";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { STATUS_LABELS } from "./FilterBar";
 import type { MapOrder } from "@/lib/types";
 import { statusColor, STATUS_COLORS } from "@/lib/statusColors";
+import { createClusterIconFactory, type ClusterRegistry } from "@/lib/clusterIcon";
+import { ClusterContextMenu } from "./ClusterContextMenu";
 
 const GHANA_CENTER: [number, number] = [7.9465, -1.0232];
 
@@ -43,6 +45,8 @@ interface MapProps {
 
 export function Map({ orders, onSelectOrder }: MapProps) {
   const [myLocation, setMyLocation] = useState<[number, number] | null>(null);
+  const registry = useMemo<ClusterRegistry>(() => new globalThis.Map(), []);
+  const clusterIcon = useMemo(() => createClusterIconFactory(registry), [registry]);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -68,7 +72,7 @@ export function Map({ orders, onSelectOrder }: MapProps) {
           </Marker>
         )}
 
-        <MarkerClusterGroup maxClusterRadius={50} chunkedLoading>
+        <MarkerClusterGroup maxClusterRadius={50} chunkedLoading iconCreateFunction={clusterIcon}>
           {orders
             .filter((o) => o.origin)
             .map((order) => (
@@ -76,6 +80,7 @@ export function Map({ orders, onSelectOrder }: MapProps) {
                 key={`origin-${order._id}`}
                 position={order.origin as [number, number]}
                 icon={divIcon(statusColor(order.status), "square")}
+                meta={{ kind: "origin", order }}
                 eventHandlers={{ click: () => onSelectOrder(order._id) }}
               >
                 <Popup>
@@ -91,7 +96,7 @@ export function Map({ orders, onSelectOrder }: MapProps) {
             ))}
         </MarkerClusterGroup>
 
-        <MarkerClusterGroup maxClusterRadius={50} chunkedLoading>
+        <MarkerClusterGroup maxClusterRadius={50} chunkedLoading iconCreateFunction={clusterIcon}>
           {orders.flatMap((order) =>
             order.subOrders
               .filter((sub) => sub.destination)
@@ -100,6 +105,7 @@ export function Map({ orders, onSelectOrder }: MapProps) {
                   key={`dest-${sub._id}`}
                   position={sub.destination as [number, number]}
                   icon={divIcon(statusColor(sub.status), "circle")}
+                  meta={{ kind: "destination", order, sub }}
                   eventHandlers={{ click: () => onSelectOrder(order._id) }}
                 >
                   <Popup>
@@ -117,6 +123,8 @@ export function Map({ orders, onSelectOrder }: MapProps) {
               ))
           )}
         </MarkerClusterGroup>
+
+        <ClusterContextMenu registry={registry} />
       </MapContainer>
 
       <Legend />
